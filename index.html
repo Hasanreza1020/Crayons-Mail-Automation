@@ -1,0 +1,1008 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Crayons Ink — Order Confirmation Sender</title>
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet" />
+<script src="https://cdn.jsdelivr.net/npm/@emailjs/browser@4/dist/email.min.js"></script>
+<style>
+  :root {
+    --bg: #ffffff;
+    --surface: #fafafa;
+    --surface-2: #f4f4f4;
+    --border: #e5e5e5;
+    --border-strong: #d4d4d4;
+    --text: #0a0a0a;
+    --text-muted: #6b6b6b;
+    --text-soft: #9a9a9a;
+    --accent: #0a0a0a;
+    --accent-text: #ffffff;
+    --danger: #1a1a1a;
+    --warn-bg: #fff8d6;
+    --warn-border: #e6d36a;
+    --warn-text: #5a4a00;
+    --shadow: 0 1px 2px rgba(0,0,0,0.04), 0 4px 16px rgba(0,0,0,0.06);
+    --radius: 10px;
+    --radius-sm: 6px;
+  }
+  * { box-sizing: border-box; }
+  html, body {
+    margin: 0; padding: 0;
+    font-family: 'Inter', system-ui, -apple-system, Segoe UI, sans-serif;
+    background: var(--bg);
+    color: var(--text);
+    font-size: 14px;
+    line-height: 1.5;
+    -webkit-font-smoothing: antialiased;
+  }
+  button { font-family: inherit; cursor: pointer; }
+  input, select, textarea { font-family: inherit; font-size: 14px; }
+  a { color: inherit; }
+
+  /* App shell */
+  .app {
+    min-height: 100vh;
+    display: flex;
+    flex-direction: column;
+  }
+  .topbar {
+    border-bottom: 1px solid var(--border);
+    padding: 14px 24px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    background: var(--bg);
+  }
+  .brand {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    font-weight: 700;
+    letter-spacing: -0.01em;
+  }
+  .brand-mark {
+    width: 26px; height: 26px;
+    border-radius: 6px;
+    background: var(--text);
+    color: var(--bg);
+    display: grid; place-items: center;
+    font-size: 13px; font-weight: 700;
+  }
+  .topbar-right { display: flex; gap: 8px; align-items: center; color: var(--text-muted); font-size: 13px; }
+
+  /* Screens */
+  .screen { display: none; flex: 1; }
+  .screen.active { display: block; animation: fade .25s ease; }
+  @keyframes fade { from { opacity: 0; transform: translateY(4px); } to { opacity: 1; transform: none; } }
+
+  /* Screen 1 */
+  .connect-wrap {
+    min-height: calc(100vh - 60px);
+    display: grid;
+    place-items: center;
+    padding: 32px 16px;
+  }
+  .card {
+    background: var(--bg);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    box-shadow: var(--shadow);
+    padding: 28px;
+    width: 100%;
+    max-width: 520px;
+  }
+  .card h1 {
+    margin: 0 0 6px;
+    font-size: 20px;
+    letter-spacing: -0.01em;
+  }
+  .card .subtitle {
+    margin: 0 0 22px;
+    color: var(--text-muted);
+    font-size: 13px;
+  }
+  .field { margin-bottom: 14px; }
+  .field label {
+    display: block;
+    font-size: 12px;
+    font-weight: 500;
+    color: var(--text-muted);
+    margin-bottom: 6px;
+    letter-spacing: 0.02em;
+    text-transform: uppercase;
+  }
+  .input, .select {
+    width: 100%;
+    padding: 10px 12px;
+    border: 1px solid var(--border-strong);
+    border-radius: var(--radius-sm);
+    background: var(--bg);
+    color: var(--text);
+    transition: border-color .15s, box-shadow .15s;
+  }
+  .input:focus, .select:focus {
+    outline: none;
+    border-color: var(--text);
+    box-shadow: 0 0 0 3px rgba(0,0,0,0.06);
+  }
+  .btn {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+    padding: 10px 16px;
+    border-radius: var(--radius-sm);
+    border: 1px solid var(--text);
+    background: var(--text);
+    color: var(--accent-text);
+    font-weight: 600;
+    font-size: 13px;
+    transition: transform .05s, opacity .15s;
+  }
+  .btn:hover { opacity: 0.9; }
+  .btn:active { transform: translateY(1px); }
+  .btn:disabled { opacity: 0.5; cursor: not-allowed; }
+  .btn.full { width: 100%; }
+  .btn.ghost {
+    background: transparent;
+    color: var(--text);
+    border: 1px solid var(--border-strong);
+  }
+  .btn.ghost:hover { background: var(--surface-2); opacity: 1; }
+
+  .collapsible {
+    margin-top: 14px;
+    border: 1px solid var(--border);
+    border-radius: var(--radius-sm);
+    overflow: hidden;
+  }
+  .collapsible summary {
+    padding: 10px 14px;
+    cursor: pointer;
+    list-style: none;
+    font-weight: 500;
+    font-size: 13px;
+    color: var(--text);
+    background: var(--surface);
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+  }
+  .collapsible summary::-webkit-details-marker { display: none; }
+  .collapsible summary::after {
+    content: '+';
+    font-size: 16px;
+    color: var(--text-muted);
+  }
+  .collapsible[open] summary::after { content: '−'; }
+  .collapsible-body { padding: 14px; border-top: 1px solid var(--border); }
+
+  .toggle-row {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 8px 0;
+  }
+  .toggle {
+    position: relative;
+    width: 38px; height: 22px;
+    background: var(--border-strong);
+    border-radius: 999px;
+    cursor: pointer;
+    transition: background .15s;
+  }
+  .toggle::after {
+    content: '';
+    position: absolute;
+    top: 2px; left: 2px;
+    width: 18px; height: 18px;
+    background: white;
+    border-radius: 50%;
+    transition: transform .15s;
+    box-shadow: 0 1px 2px rgba(0,0,0,0.2);
+  }
+  .toggle.on { background: var(--text); }
+  .toggle.on::after { transform: translateX(16px); }
+  .toggle-label { font-size: 13px; color: var(--text); font-weight: 500; }
+  .toggle-hint { font-size: 12px; color: var(--text-muted); margin-top: 2px; }
+
+  /* Spinner */
+  .spinner {
+    width: 14px; height: 14px;
+    border: 2px solid rgba(255,255,255,0.4);
+    border-top-color: white;
+    border-radius: 50%;
+    animation: spin .8s linear infinite;
+  }
+  .spinner.dark {
+    border: 2px solid rgba(0,0,0,0.15);
+    border-top-color: var(--text);
+  }
+  @keyframes spin { to { transform: rotate(360deg); } }
+
+  /* Screen 2 */
+  .orders-wrap {
+    max-width: 1280px;
+    margin: 0 auto;
+    padding: 24px;
+  }
+  .orders-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+    margin-bottom: 18px;
+    flex-wrap: wrap;
+  }
+  .orders-header h2 {
+    margin: 0;
+    font-size: 18px;
+    letter-spacing: -0.01em;
+  }
+  .orders-header .meta { color: var(--text-muted); font-size: 13px; margin-top: 2px; }
+  .toolbar {
+    display: flex;
+    gap: 8px;
+    flex-wrap: wrap;
+  }
+  .toolbar .input, .toolbar .select { padding: 8px 12px; }
+  .toolbar .input { width: 260px; }
+
+  .table-wrap {
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    overflow: hidden;
+    background: var(--bg);
+  }
+  table {
+    width: 100%;
+    border-collapse: collapse;
+  }
+  thead th {
+    text-align: left;
+    padding: 12px 14px;
+    background: var(--surface);
+    border-bottom: 1px solid var(--border);
+    font-size: 12px;
+    font-weight: 600;
+    color: var(--text-muted);
+    letter-spacing: 0.03em;
+    text-transform: uppercase;
+  }
+  tbody td {
+    padding: 12px 14px;
+    border-bottom: 1px solid var(--border);
+    font-size: 13px;
+    color: var(--text);
+    vertical-align: middle;
+  }
+  tbody tr:last-child td { border-bottom: none; }
+  tbody tr:hover { background: var(--surface); }
+
+  .badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    padding: 3px 10px;
+    border-radius: 999px;
+    font-size: 11px;
+    font-weight: 600;
+    letter-spacing: 0.02em;
+    text-transform: uppercase;
+  }
+  .badge.pending { background: var(--surface-2); color: var(--text-muted); border: 1px solid var(--border-strong); }
+  .badge.sent { background: var(--text); color: var(--accent-text); border: 1px solid var(--text); }
+  .badge::before {
+    content: '';
+    width: 6px; height: 6px;
+    border-radius: 50%;
+    background: currentColor;
+    opacity: 0.8;
+  }
+
+  .empty {
+    padding: 48px 16px;
+    text-align: center;
+    color: var(--text-muted);
+    font-size: 14px;
+  }
+
+  /* Modal */
+  .modal-backdrop {
+    position: fixed;
+    inset: 0;
+    background: rgba(10, 10, 10, 0.45);
+    display: none;
+    align-items: center;
+    justify-content: center;
+    padding: 24px;
+    z-index: 50;
+    animation: fade .15s ease;
+  }
+  .modal-backdrop.active { display: flex; }
+  .modal {
+    width: 100%;
+    max-width: 1100px;
+    max-height: 90vh;
+    background: var(--bg);
+    border-radius: var(--radius);
+    border: 1px solid var(--border);
+    box-shadow: var(--shadow);
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+  }
+  .modal-header {
+    padding: 16px 20px;
+    border-bottom: 1px solid var(--border);
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+  }
+  .modal-header h3 { margin: 0; font-size: 15px; }
+  .modal-close {
+    background: transparent;
+    border: none;
+    font-size: 22px;
+    line-height: 1;
+    color: var(--text-muted);
+    padding: 4px 8px;
+  }
+  .modal-close:hover { color: var(--text); }
+
+  .modal-body {
+    display: grid;
+    grid-template-columns: 1.4fr 1fr;
+    gap: 0;
+    flex: 1;
+    overflow: hidden;
+  }
+  .preview-pane {
+    border-right: 1px solid var(--border);
+    background: var(--surface);
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+  }
+  .preview-pane-label {
+    padding: 8px 14px;
+    font-size: 11px;
+    color: var(--text-muted);
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    border-bottom: 1px solid var(--border);
+    background: var(--bg);
+  }
+  .preview-iframe {
+    flex: 1;
+    width: 100%;
+    border: none;
+    background: white;
+    min-height: 460px;
+  }
+
+  .summary-pane {
+    padding: 18px 20px;
+    overflow-y: auto;
+  }
+  .summary-pane h4 {
+    margin: 0 0 12px;
+    font-size: 13px;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+    color: var(--text-muted);
+  }
+  .summary-row {
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-start;
+    gap: 12px;
+    padding: 8px 0;
+    border-bottom: 1px dashed var(--border);
+    font-size: 13px;
+  }
+  .summary-row:last-child { border-bottom: none; }
+  .summary-row .k { color: var(--text-muted); flex-shrink: 0; }
+  .summary-row .v { text-align: right; word-break: break-word; font-weight: 500; }
+
+  .modal-footer {
+    padding: 14px 20px;
+    border-top: 1px solid var(--border);
+    display: flex;
+    justify-content: flex-end;
+    gap: 10px;
+    background: var(--surface);
+  }
+
+  .test-banner {
+    background: var(--warn-bg);
+    border-bottom: 1px solid var(--warn-border);
+    color: var(--warn-text);
+    padding: 8px 14px;
+    font-size: 12px;
+    font-weight: 500;
+    text-align: center;
+  }
+
+  /* Toast */
+  .toast {
+    position: fixed;
+    bottom: 24px;
+    left: 50%;
+    transform: translateX(-50%) translateY(20px);
+    background: var(--text);
+    color: var(--accent-text);
+    padding: 10px 18px;
+    border-radius: var(--radius-sm);
+    font-size: 13px;
+    font-weight: 500;
+    box-shadow: var(--shadow);
+    opacity: 0;
+    pointer-events: none;
+    transition: opacity .2s, transform .2s;
+    z-index: 100;
+  }
+  .toast.show { opacity: 1; transform: translateX(-50%) translateY(0); }
+  .toast.error { background: #2a2a2a; }
+
+  /* Responsive */
+  @media (max-width: 900px) {
+    .modal-body { grid-template-columns: 1fr; }
+    .preview-pane { border-right: none; border-bottom: 1px solid var(--border); max-height: 50vh; }
+    .toolbar .input { width: 100%; }
+  }
+</style>
+</head>
+<body>
+<div class="app">
+  <header class="topbar">
+    <div class="brand">
+      <div class="brand-mark">C</div>
+      <span>Crayons Ink — Order Sender</span>
+    </div>
+    <div class="topbar-right" id="topbarRight"></div>
+  </header>
+
+  <!-- Screen 1: Connect -->
+  <section id="screen-connect" class="screen active">
+    <div class="connect-wrap">
+      <div class="card">
+        <h1>Connect your orders sheet</h1>
+        <p class="subtitle">Paste your public Google Sheet CSV URL to load today's orders.</p>
+
+        <div class="field">
+          <label for="sheetUrl">Google Sheet CSV URL</label>
+          <input id="sheetUrl" class="input" type="url"
+            placeholder="https://docs.google.com/spreadsheets/d/SHEET_ID/export?format=csv" />
+        </div>
+
+        <button id="loadBtn" class="btn full">
+          <span id="loadBtnText">Load Orders</span>
+        </button>
+
+        <details class="collapsible" id="emailjsSettings">
+          <summary>EmailJS Settings</summary>
+          <div class="collapsible-body">
+            <div class="field">
+              <label for="ejsPublicKey">Public Key</label>
+              <input id="ejsPublicKey" class="input" type="text" placeholder="user_xxxxxxxxxxxx" />
+            </div>
+            <div class="field">
+              <label for="ejsServiceId">Service ID</label>
+              <input id="ejsServiceId" class="input" type="text" placeholder="service_xxxxxxx" />
+            </div>
+            <div class="field">
+              <label for="ejsTemplateId">Template ID</label>
+              <input id="ejsTemplateId" class="input" type="text" placeholder="template_xxxxxxx" />
+            </div>
+            <div class="toggle-row">
+              <div>
+                <div class="toggle-label">Test Mode</div>
+                <div class="toggle-hint">Preview only — does not actually send emails.</div>
+              </div>
+              <div id="testToggle" class="toggle" role="switch" aria-checked="false" tabindex="0"></div>
+            </div>
+            <button id="saveSettingsBtn" class="btn ghost full" style="margin-top: 10px;">Save Settings</button>
+          </div>
+        </details>
+      </div>
+    </div>
+  </section>
+
+  <!-- Screen 2: Orders -->
+  <section id="screen-orders" class="screen">
+    <div class="orders-wrap">
+      <div class="orders-header">
+        <div>
+          <h2>Orders</h2>
+          <div class="meta" id="ordersMeta">—</div>
+        </div>
+        <div class="toolbar">
+          <input id="searchInput" class="input" type="search" placeholder="Search by name or district…" />
+          <select id="statusFilter" class="select">
+            <option value="all">All</option>
+            <option value="pending">Pending</option>
+            <option value="sent">Sent</option>
+          </select>
+          <button id="reloadBtn" class="btn ghost">Reload</button>
+          <button id="backBtn" class="btn ghost">← Change sheet</button>
+        </div>
+      </div>
+
+      <div class="table-wrap">
+        <table>
+          <thead>
+            <tr>
+              <th style="width: 50px;">#</th>
+              <th>Order ID</th>
+              <th>Customer</th>
+              <th>District</th>
+              <th>Payment</th>
+              <th style="width: 110px;">Total</th>
+              <th style="width: 110px;">Status</th>
+              <th style="width: 160px;"></th>
+            </tr>
+          </thead>
+          <tbody id="ordersBody"></tbody>
+        </table>
+        <div id="emptyState" class="empty" style="display:none;">No orders match your filters.</div>
+      </div>
+    </div>
+  </section>
+</div>
+
+<!-- Modal -->
+<div id="modalBackdrop" class="modal-backdrop" role="dialog" aria-modal="true">
+  <div class="modal">
+    <div id="testBanner" class="test-banner" style="display:none;">Test Mode — email not sent.</div>
+    <div class="modal-header">
+      <h3 id="modalTitle">Preview & Send</h3>
+      <button class="modal-close" id="modalCloseBtn" aria-label="Close">×</button>
+    </div>
+    <div class="modal-body">
+      <div class="preview-pane">
+        <div class="preview-pane-label">Email preview</div>
+        <iframe id="previewFrame" class="preview-iframe" title="Email preview" sandbox="allow-same-origin"></iframe>
+      </div>
+      <div class="summary-pane">
+        <h4>Order Summary</h4>
+        <div id="summaryRows"></div>
+      </div>
+    </div>
+    <div class="modal-footer">
+      <button id="downloadBtn" class="btn ghost">Download HTML</button>
+      <button id="sendBtn" class="btn">
+        <span id="sendBtnText">Send via EmailJS</span>
+      </button>
+    </div>
+  </div>
+</div>
+
+<div id="toast" class="toast"></div>
+
+<script>
+/* =========================================================
+   Crayons Ink — Order Confirmation Sender
+   Single-file vanilla JS app. No backend.
+   ========================================================= */
+
+const CONFIG = {
+  COMPANY_NAME: 'Crayons Ink',
+  COMPANY_EMAIL: 'reachus.crayons@gmail.com',
+  COMPANY_ADDRESS: 'Dhaka, Bangladesh',
+  PRODUCT_NAME: 'Crayons High Frequency Vocab Flashcards',
+  PRICE: 570,
+  ORIGINAL_PRICE: 800,
+  DELIVERY_DHAKA: 80,
+  DELIVERY_OUTSIDE: 120,
+  ETA_DHAKA_DAYS: 3,
+  ETA_OUTSIDE_DAYS: 5,
+};
+
+const LS_KEYS = {
+  sentIds: 'crayonsink_sent',
+  ejsPublicKey: 'crayonsink_ejs_public_key',
+  ejsServiceId: 'crayonsink_ejs_service_id',
+  ejsTemplateId: 'crayonsink_ejs_template_id',
+  sheetUrl: 'crayonsink_sheet_url',
+  testMode: 'crayonsink_test_mode',
+};
+
+const state = {
+  template: '',
+  orders: [],
+  filtered: [],
+  currentOrder: null,
+  testMode: false,
+};
+
+/* ---------- localStorage helpers ---------- */
+const getSentIds = () => {
+  try { return JSON.parse(localStorage.getItem(LS_KEYS.sentIds) || '[]'); }
+  catch { return []; }
+};
+const markSent = (orderId) => {
+  const ids = getSentIds();
+  if (!ids.includes(orderId)) {
+    ids.push(orderId);
+    localStorage.setItem(LS_KEYS.sentIds, JSON.stringify(ids));
+  }
+};
+const isSent = (orderId) => getSentIds().includes(orderId);
+
+/* ---------- CSV parser (handles quoted commas/newlines) ---------- */
+function parseCSV(text) {
+  const rows = [];
+  let row = [], cell = '', inQuotes = false;
+  for (let i = 0; i < text.length; i++) {
+    const c = text[i], next = text[i + 1];
+    if (inQuotes) {
+      if (c === '"' && next === '"') { cell += '"'; i++; }
+      else if (c === '"') { inQuotes = false; }
+      else { cell += c; }
+    } else {
+      if (c === '"') { inQuotes = true; }
+      else if (c === ',') { row.push(cell); cell = ''; }
+      else if (c === '\r') { /* skip */ }
+      else if (c === '\n') { row.push(cell); rows.push(row); row = []; cell = ''; }
+      else { cell += c; }
+    }
+  }
+  if (cell.length || row.length) { row.push(cell); rows.push(row); }
+  return rows.filter(r => r.some(v => v && v.trim().length));
+}
+
+/* ---------- date helpers ---------- */
+function formatDate(d) {
+  const months = ['January','February','March','April','May','June','July','August','September','October','November','December'];
+  const dd = String(d.getDate()).padStart(2, '0');
+  return `${dd} ${months[d.getMonth()]} ${d.getFullYear()}`;
+}
+function formatDateCompact(d) {
+  const y = d.getFullYear();
+  const m = String(d.getMonth() + 1).padStart(2, '0');
+  const day = String(d.getDate()).padStart(2, '0');
+  return `${y}${m}${day}`;
+}
+function parseTimestamp(ts) {
+  if (!ts) return new Date();
+  const d = new Date(ts);
+  if (!isNaN(d.getTime())) return d;
+  // Google Forms common format: "5/6/2026 14:30:00"
+  const m = ts.match(/(\d{1,2})[\/\-](\d{1,2})[\/\-](\d{2,4})/);
+  if (m) {
+    const [_, a, b, c] = m;
+    const y = c.length === 2 ? 2000 + parseInt(c) : parseInt(c);
+    return new Date(y, parseInt(a) - 1, parseInt(b));
+  }
+  return new Date();
+}
+function addDays(d, n) {
+  const out = new Date(d);
+  out.setDate(out.getDate() + n);
+  return out;
+}
+
+/* ---------- order building ---------- */
+function isInsideDhaka(district) {
+  return (district || '').trim().toLowerCase() === 'dhaka';
+}
+
+function buildOrder(row, index) {
+  const [timestamp, name, phone, email, address, district, payment, txnId] = row.map(s => (s || '').trim());
+  const orderDate = parseTimestamp(timestamp);
+  const inside = isInsideDhaka(district);
+  const shipping = inside ? CONFIG.DELIVERY_DHAKA : CONFIG.DELIVERY_OUTSIDE;
+  const total = CONFIG.PRICE + shipping;
+  const rowNum = String(index + 1).padStart(3, '0');
+  const orderId = `CI-${formatDateCompact(orderDate)}-${rowNum}`;
+  const deliveryDate = addDays(orderDate, inside ? CONFIG.ETA_DHAKA_DAYS : CONFIG.ETA_OUTSIDE_DAYS);
+
+  return {
+    rowNumber: index + 1,
+    orderId,
+    timestamp,
+    orderDate,
+    deliveryDate,
+    name, phone, email, address, district, payment, txnId,
+    inside,
+    shipping,
+    subtotal: CONFIG.PRICE,
+    total,
+  };
+}
+
+function placeholders(order) {
+  return {
+    'Customer Name': order.name,
+    'Order ID': order.orderId,
+    'Order Date': formatDate(order.orderDate),
+    'Payment Method': order.payment,
+    'Delivery Date': formatDate(order.deliveryDate),
+    'Product Name': CONFIG.PRODUCT_NAME,
+    'Quantity': '1',
+    'Item Price': '570 BDT',
+    'Subtotal': '570 BDT',
+    'Shipping Cost': `${order.shipping} BDT`,
+    'Total Amount': `${order.total} BDT`,
+    'Address Line 1': order.address,
+    'City': order.district,
+    'Postal Code': 'N/A',
+    'Country': 'Bangladesh',
+    'Company Address': CONFIG.COMPANY_ADDRESS,
+    'Company Name': CONFIG.COMPANY_NAME,
+    'Company Email': CONFIG.COMPANY_EMAIL,
+  };
+}
+
+function fillTemplate(template, order) {
+  const map = placeholders(order);
+  return template.replace(/\{\{\s*([^}]+?)\s*\}\}/g, (m, key) => {
+    return Object.prototype.hasOwnProperty.call(map, key) ? String(map[key] ?? '') : m;
+  });
+}
+
+/* ---------- screen control ---------- */
+function showScreen(id) {
+  document.querySelectorAll('.screen').forEach(s => s.classList.remove('active'));
+  document.getElementById(id).classList.add('active');
+}
+
+/* ---------- toast ---------- */
+let toastTimer = null;
+function toast(msg, opts = {}) {
+  const el = document.getElementById('toast');
+  el.textContent = msg;
+  el.classList.toggle('error', !!opts.error);
+  el.classList.add('show');
+  clearTimeout(toastTimer);
+  toastTimer = setTimeout(() => el.classList.remove('show'), 2600);
+}
+
+/* ---------- settings ---------- */
+function loadSettingsIntoForm() {
+  document.getElementById('sheetUrl').value = localStorage.getItem(LS_KEYS.sheetUrl) || '';
+  document.getElementById('ejsPublicKey').value = localStorage.getItem(LS_KEYS.ejsPublicKey) || '';
+  document.getElementById('ejsServiceId').value = localStorage.getItem(LS_KEYS.ejsServiceId) || '';
+  document.getElementById('ejsTemplateId').value = localStorage.getItem(LS_KEYS.ejsTemplateId) || '';
+  state.testMode = localStorage.getItem(LS_KEYS.testMode) === '1';
+  setToggle(state.testMode);
+}
+function saveSettings() {
+  localStorage.setItem(LS_KEYS.ejsPublicKey, document.getElementById('ejsPublicKey').value.trim());
+  localStorage.setItem(LS_KEYS.ejsServiceId, document.getElementById('ejsServiceId').value.trim());
+  localStorage.setItem(LS_KEYS.ejsTemplateId, document.getElementById('ejsTemplateId').value.trim());
+  localStorage.setItem(LS_KEYS.testMode, state.testMode ? '1' : '0');
+  toast('Settings saved');
+}
+function setToggle(on) {
+  state.testMode = !!on;
+  const t = document.getElementById('testToggle');
+  t.classList.toggle('on', state.testMode);
+  t.setAttribute('aria-checked', state.testMode ? 'true' : 'false');
+  localStorage.setItem(LS_KEYS.testMode, state.testMode ? '1' : '0');
+}
+
+/* ---------- load CSV ---------- */
+async function loadOrders() {
+  const url = document.getElementById('sheetUrl').value.trim();
+  if (!url) { toast('Paste a sheet URL first', { error: true }); return; }
+  if (!/^https:\/\/docs\.google\.com\/spreadsheets\//.test(url)) {
+    toast('That doesn’t look like a Google Sheets URL', { error: true }); return;
+  }
+  localStorage.setItem(LS_KEYS.sheetUrl, url);
+
+  const btn = document.getElementById('loadBtn');
+  const txt = document.getElementById('loadBtnText');
+  btn.disabled = true;
+  txt.innerHTML = '<span class="spinner"></span> Loading…';
+
+  try {
+    // Load template (once per session) and CSV in parallel
+    const [tplRes, csvRes] = await Promise.all([
+      state.template ? Promise.resolve(null) : fetch('./template.html'),
+      fetch(url, { redirect: 'follow' }),
+    ]);
+    if (tplRes) {
+      if (!tplRes.ok) throw new Error('Could not fetch template.html (place it next to index.html)');
+      state.template = await tplRes.text();
+    }
+    if (!csvRes.ok) throw new Error(`Sheet fetch failed (${csvRes.status}). Make sure the sheet is set to "Anyone with the link".`);
+    const csvText = await csvRes.text();
+    const rows = parseCSV(csvText);
+    if (rows.length < 2) throw new Error('Sheet has no data rows.');
+    const dataRows = rows.slice(1); // drop header
+    state.orders = dataRows.map((r, i) => buildOrder(r, i));
+    renderOrders();
+    showScreen('screen-orders');
+  } catch (err) {
+    console.error(err);
+    toast(err.message || 'Failed to load', { error: true });
+  } finally {
+    btn.disabled = false;
+    txt.textContent = 'Load Orders';
+  }
+}
+
+/* ---------- render orders ---------- */
+function renderOrders() {
+  const q = document.getElementById('searchInput').value.trim().toLowerCase();
+  const filter = document.getElementById('statusFilter').value;
+  const tbody = document.getElementById('ordersBody');
+  const empty = document.getElementById('emptyState');
+
+  state.filtered = state.orders.filter(o => {
+    const matchesQ = !q || (o.name || '').toLowerCase().includes(q) || (o.district || '').toLowerCase().includes(q);
+    const sent = isSent(o.orderId);
+    const matchesF = filter === 'all' || (filter === 'sent' && sent) || (filter === 'pending' && !sent);
+    return matchesQ && matchesF;
+  });
+
+  tbody.innerHTML = '';
+  if (!state.filtered.length) {
+    empty.style.display = 'block';
+  } else {
+    empty.style.display = 'none';
+    for (const o of state.filtered) {
+      const sent = isSent(o.orderId);
+      const tr = document.createElement('tr');
+      tr.innerHTML = `
+        <td>${o.rowNumber}</td>
+        <td><code style="font-size:12px;">${escapeHtml(o.orderId)}</code></td>
+        <td>${escapeHtml(o.name || '—')}</td>
+        <td>${escapeHtml(o.district || '—')}</td>
+        <td>${escapeHtml(o.payment || '—')}</td>
+        <td>${o.total} BDT</td>
+        <td><span class="badge ${sent ? 'sent' : 'pending'}">${sent ? 'Sent' : 'Pending'}</span></td>
+        <td><button class="btn ghost" data-id="${escapeHtml(o.orderId)}">Preview & Send</button></td>
+      `;
+      tr.querySelector('button').addEventListener('click', () => openModal(o));
+      tbody.appendChild(tr);
+    }
+  }
+
+  const totalCount = state.orders.length;
+  const sentCount = state.orders.filter(o => isSent(o.orderId)).length;
+  document.getElementById('ordersMeta').textContent = `${totalCount} orders · ${sentCount} sent · ${totalCount - sentCount} pending`;
+}
+
+function escapeHtml(s) {
+  return String(s ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+}
+
+/* ---------- modal ---------- */
+function openModal(order) {
+  state.currentOrder = order;
+  const html = fillTemplate(state.template, order);
+  const iframe = document.getElementById('previewFrame');
+  iframe.srcdoc = html;
+
+  const rows = [
+    ['Customer', order.name],
+    ['Order ID', order.orderId],
+    ['Email', order.email || '—'],
+    ['Phone', order.phone || '—'],
+    ['District', order.district],
+    ['Payment', order.payment],
+    ['Subtotal', `${order.subtotal} BDT`],
+    ['Shipping', `${order.shipping} BDT`],
+    ['Total', `${order.total} BDT`],
+    ['Delivery by', formatDate(order.deliveryDate)],
+  ];
+  document.getElementById('summaryRows').innerHTML = rows.map(([k, v]) =>
+    `<div class="summary-row"><span class="k">${escapeHtml(k)}</span><span class="v">${escapeHtml(v)}</span></div>`
+  ).join('');
+
+  document.getElementById('testBanner').style.display = state.testMode ? 'block' : 'none';
+  document.getElementById('modalBackdrop').classList.add('active');
+}
+
+function closeModal() {
+  document.getElementById('modalBackdrop').classList.remove('active');
+  state.currentOrder = null;
+}
+
+/* ---------- send / download ---------- */
+function downloadCurrent() {
+  if (!state.currentOrder) return;
+  const html = fillTemplate(state.template, state.currentOrder);
+  const blob = new Blob([html], { type: 'text/html' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = `${state.currentOrder.orderId}.html`;
+  document.body.appendChild(a);
+  a.click();
+  document.body.removeChild(a);
+  URL.revokeObjectURL(url);
+  toast('Downloaded');
+}
+
+async function sendCurrent() {
+  if (!state.currentOrder) return;
+  const order = state.currentOrder;
+  const html = fillTemplate(state.template, order);
+
+  const sendBtn = document.getElementById('sendBtn');
+  const sendTxt = document.getElementById('sendBtnText');
+
+  if (state.testMode) {
+    markSent(order.orderId);
+    renderOrders();
+    closeModal();
+    toast('Test Mode — email not sent. Marked as sent locally.');
+    return;
+  }
+
+  if (!order.email) { toast('No email address for this customer', { error: true }); return; }
+
+  const publicKey = localStorage.getItem(LS_KEYS.ejsPublicKey) || '';
+  const serviceId = localStorage.getItem(LS_KEYS.ejsServiceId) || '';
+  const templateId = localStorage.getItem(LS_KEYS.ejsTemplateId) || '';
+  if (!publicKey || !serviceId || !templateId) {
+    toast('EmailJS credentials missing. Open EmailJS Settings on Screen 1.', { error: true });
+    return;
+  }
+
+  sendBtn.disabled = true;
+  sendTxt.innerHTML = '<span class="spinner"></span> Sending…';
+
+  try {
+    if (!window.emailjs) throw new Error('EmailJS SDK failed to load');
+    emailjs.init({ publicKey });
+    await emailjs.send(serviceId, templateId, {
+      to_email: order.email,
+      to_name: order.name,
+      html_content: html,
+      order_id: order.orderId,
+      subject: `Order Confirmation — ${order.orderId}`,
+    });
+    markSent(order.orderId);
+    renderOrders();
+    closeModal();
+    toast(`Sent to ${order.email}`);
+  } catch (err) {
+    console.error(err);
+    const msg = (err && (err.text || err.message)) || 'Send failed';
+    toast(`Send failed: ${msg}`, { error: true });
+  } finally {
+    sendBtn.disabled = false;
+    sendTxt.textContent = 'Send via EmailJS';
+  }
+}
+
+/* ---------- bindings ---------- */
+function init() {
+  loadSettingsIntoForm();
+
+  document.getElementById('loadBtn').addEventListener('click', loadOrders);
+  document.getElementById('saveSettingsBtn').addEventListener('click', saveSettings);
+  document.getElementById('testToggle').addEventListener('click', () => setToggle(!state.testMode));
+  document.getElementById('testToggle').addEventListener('keydown', e => {
+    if (e.key === ' ' || e.key === 'Enter') { e.preventDefault(); setToggle(!state.testMode); }
+  });
+
+  document.getElementById('searchInput').addEventListener('input', renderOrders);
+  document.getElementById('statusFilter').addEventListener('change', renderOrders);
+  document.getElementById('reloadBtn').addEventListener('click', loadOrders);
+  document.getElementById('backBtn').addEventListener('click', () => showScreen('screen-connect'));
+
+  document.getElementById('modalCloseBtn').addEventListener('click', closeModal);
+  document.getElementById('modalBackdrop').addEventListener('click', e => {
+    if (e.target.id === 'modalBackdrop') closeModal();
+  });
+  document.addEventListener('keydown', e => {
+    if (e.key === 'Escape') closeModal();
+  });
+
+  document.getElementById('downloadBtn').addEventListener('click', downloadCurrent);
+  document.getElementById('sendBtn').addEventListener('click', sendCurrent);
+}
+
+document.addEventListener('DOMContentLoaded', init);
+</script>
+</body>
+</html>
