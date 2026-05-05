@@ -40,8 +40,10 @@ Your Google Form already writes responses into a sheet. To expose it as CSV:
    If you have multiple tabs, add `&gid=<tab_id>` (the tab id is in the URL when you click that tab).
 6. Paste this URL into the app on Screen 1.
 
-> **Column order matters.** The app expects the form responses in this exact order:
-> `Timestamp, Customer Full Name, Phone Number, Email Address, Delivery Address, District, Payment Method, Transaction ID`.
+> **Column order matters.** The app expects these columns in this exact order (same as your Google Form):
+> `Order Id, Name, Email, Phone number, Alternative Phone Number, Full Address, Payment Method, Sender's bKash number, Transaction Id, Reference/Coupon Code, Timestamp`.
+>
+> The Order Id from the sheet is used as-is. The delivery zone (Dhaka / Outside Dhaka) is auto-guessed from the Full Address — if "dhaka" appears anywhere in the address it defaults to Dhaka. You can override it per order in the preview modal before sending.
 
 ## 2) Set up EmailJS (free tier is fine)
 

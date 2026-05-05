@@ -310,6 +310,51 @@
     font-size: 14px;
   }
 
+  /* Address ellipsis cell */
+  .addr-cell {
+    max-width: 280px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    color: var(--text-muted);
+  }
+
+  /* Zone segmented control (modal) */
+  .zone-control {
+    display: flex;
+    gap: 0;
+    border: 1px solid var(--border-strong);
+    border-radius: var(--radius-sm);
+    overflow: hidden;
+    margin: 8px 0 14px;
+  }
+  .zone-control button {
+    flex: 1;
+    padding: 8px 10px;
+    border: none;
+    background: var(--bg);
+    color: var(--text-muted);
+    font-size: 12px;
+    font-weight: 500;
+    border-right: 1px solid var(--border-strong);
+  }
+  .zone-control button:last-child { border-right: none; }
+  .zone-control button.active {
+    background: var(--text);
+    color: var(--accent-text);
+  }
+  .zone-control button .price {
+    font-size: 11px;
+    opacity: 0.75;
+    margin-left: 4px;
+  }
+  .zone-control button.active .price { opacity: 1; }
+  .zone-hint {
+    font-size: 11px;
+    color: var(--text-soft);
+    margin-bottom: 8px;
+  }
+
   /* Modal */
   .modal-backdrop {
     position: fixed;
@@ -521,7 +566,7 @@
           <div class="meta" id="ordersMeta">—</div>
         </div>
         <div class="toolbar">
-          <input id="searchInput" class="input" type="search" placeholder="Search by name or district…" />
+          <input id="searchInput" class="input" type="search" placeholder="Search by name, address, or order ID…" />
           <select id="statusFilter" class="select">
             <option value="all">All</option>
             <option value="pending">Pending</option>
@@ -539,7 +584,7 @@
               <th style="width: 50px;">#</th>
               <th>Order ID</th>
               <th>Customer</th>
-              <th>District</th>
+              <th>Address</th>
               <th>Payment</th>
               <th style="width: 110px;">Total</th>
               <th style="width: 110px;">Status</th>
@@ -568,7 +613,13 @@
         <iframe id="previewFrame" class="preview-iframe" title="Email preview" sandbox="allow-same-origin"></iframe>
       </div>
       <div class="summary-pane">
-        <h4>Order Summary</h4>
+        <h4>Delivery Zone</h4>
+        <div class="zone-hint" id="zoneHint">Auto-detected from address — change if wrong.</div>
+        <div class="zone-control" role="tablist" aria-label="Delivery zone">
+          <button type="button" id="zoneDhakaBtn" data-zone="dhaka">Dhaka<span class="price">· 80 BDT · 3 days</span></button>
+          <button type="button" id="zoneOutsideBtn" data-zone="outside">Outside Dhaka<span class="price">· 120 BDT · 5 days</span></button>
+        </div>
+        <h4 style="margin-top: 6px;">Order Summary</h4>
         <div id="summaryRows"></div>
       </div>
     </div>
@@ -687,32 +738,44 @@ function addDays(d, n) {
 }
 
 /* ---------- order building ---------- */
-function isInsideDhaka(district) {
-  return (district || '').trim().toLowerCase() === 'dhaka';
+function detectZone(address) {
+  return /\bdhaka\b/i.test(address || '') ? 'dhaka' : 'outside';
+}
+function pricingFor(zone) {
+  return zone === 'dhaka'
+    ? { shipping: CONFIG.DELIVERY_DHAKA, etaDays: CONFIG.ETA_DHAKA_DAYS }
+    : { shipping: CONFIG.DELIVERY_OUTSIDE, etaDays: CONFIG.ETA_OUTSIDE_DAYS };
+}
+function applyZone(order, zone) {
+  order.zone = zone;
+  const p = pricingFor(zone);
+  order.shipping = p.shipping;
+  order.total = order.subtotal + p.shipping;
+  order.deliveryDate = addDays(order.orderDate, p.etaDays);
+  return order;
 }
 
 function buildOrder(row, index) {
-  const [timestamp, name, phone, email, address, district, payment, txnId] = row.map(s => (s || '').trim());
+  // Sheet column order:
+  // 0:Order Id, 1:Name, 2:Email, 3:Phone, 4:Alt Phone, 5:Full Address,
+  // 6:Payment Method, 7:Sender's bKash number, 8:Transaction Id,
+  // 9:Reference/Coupon, 10:Timestamp
+  const cells = row.map(s => (s || '').trim());
+  const [orderIdRaw, name, email, phone, altPhone, address, payment, bkashSender, txnId, coupon, timestamp] = cells;
   const orderDate = parseTimestamp(timestamp);
-  const inside = isInsideDhaka(district);
-  const shipping = inside ? CONFIG.DELIVERY_DHAKA : CONFIG.DELIVERY_OUTSIDE;
-  const total = CONFIG.PRICE + shipping;
-  const rowNum = String(index + 1).padStart(3, '0');
-  const orderId = `CI-${formatDateCompact(orderDate)}-${rowNum}`;
-  const deliveryDate = addDays(orderDate, inside ? CONFIG.ETA_DHAKA_DAYS : CONFIG.ETA_OUTSIDE_DAYS);
+  const detectedZone = detectZone(address);
+  const orderId = orderIdRaw || `CI-${formatDateCompact(orderDate)}-${String(index + 1).padStart(3, '0')}`;
 
-  return {
+  const order = {
     rowNumber: index + 1,
     orderId,
     timestamp,
     orderDate,
-    deliveryDate,
-    name, phone, email, address, district, payment, txnId,
-    inside,
-    shipping,
+    name, email, phone, altPhone, address, payment, bkashSender, txnId, coupon,
+    detectedZone,
     subtotal: CONFIG.PRICE,
-    total,
   };
+  return applyZone(order, detectedZone);
 }
 
 function placeholders(order) {
@@ -729,7 +792,7 @@ function placeholders(order) {
     'Shipping Cost': `${order.shipping} BDT`,
     'Total Amount': `${order.total} BDT`,
     'Address Line 1': order.address,
-    'City': order.district,
+    'City': order.zone === 'dhaka' ? 'Dhaka' : '',
     'Postal Code': 'N/A',
     'Country': 'Bangladesh',
     'Company Address': CONFIG.COMPANY_ADDRESS,
@@ -787,13 +850,29 @@ function setToggle(on) {
 }
 
 /* ---------- load CSV ---------- */
+function toCsvUrl(input) {
+  // Accept: /edit, /edit#gid=N, /edit?gid=N, /export?format=csv, /pub?gid=...&output=csv
+  const m = input.match(/\/spreadsheets\/d\/([^/]+)/);
+  if (!m) return null;
+  const id = m[1];
+  // Try to extract gid from any form
+  const gidMatch = input.match(/[#&?]gid=(\d+)/);
+  const gid = gidMatch ? gidMatch[1] : null;
+  // If user already passed a CSV-export URL, keep it
+  if (/[?&]output=csv|[?&]format=csv/.test(input)) return input;
+  let out = `https://docs.google.com/spreadsheets/d/${id}/export?format=csv`;
+  if (gid) out += `&gid=${gid}`;
+  return out;
+}
+
 async function loadOrders() {
-  const url = document.getElementById('sheetUrl').value.trim();
-  if (!url) { toast('Paste a sheet URL first', { error: true }); return; }
-  if (!/^https:\/\/docs\.google\.com\/spreadsheets\//.test(url)) {
+  const raw = document.getElementById('sheetUrl').value.trim();
+  if (!raw) { toast('Paste a sheet URL first', { error: true }); return; }
+  if (!/docs\.google\.com\/spreadsheets/.test(raw)) {
     toast('That doesn’t look like a Google Sheets URL', { error: true }); return;
   }
-  localStorage.setItem(LS_KEYS.sheetUrl, url);
+  const url = toCsvUrl(raw) || raw;
+  localStorage.setItem(LS_KEYS.sheetUrl, raw);
 
   const btn = document.getElementById('loadBtn');
   const txt = document.getElementById('loadBtnText');
@@ -801,7 +880,6 @@ async function loadOrders() {
   txt.innerHTML = '<span class="spinner"></span> Loading…';
 
   try {
-    // Load template (once per session) and CSV in parallel
     const [tplRes, csvRes] = await Promise.all([
       state.template ? Promise.resolve(null) : fetch('./template.html'),
       fetch(url, { redirect: 'follow' }),
@@ -810,12 +888,16 @@ async function loadOrders() {
       if (!tplRes.ok) throw new Error('Could not fetch template.html (place it next to index.html)');
       state.template = await tplRes.text();
     }
-    if (!csvRes.ok) throw new Error(`Sheet fetch failed (${csvRes.status}). Make sure the sheet is set to "Anyone with the link".`);
+    if (!csvRes.ok) {
+      throw new Error(`Sheet fetch failed (${csvRes.status}). Set the sheet to "Anyone with the link" → Viewer.`);
+    }
     const csvText = await csvRes.text();
+    if (csvText.trim().startsWith('<')) {
+      throw new Error('Got HTML instead of CSV. The sheet probably isn’t public — Share → Anyone with the link → Viewer.');
+    }
     const rows = parseCSV(csvText);
     if (rows.length < 2) throw new Error('Sheet has no data rows.');
-    const dataRows = rows.slice(1); // drop header
-    state.orders = dataRows.map((r, i) => buildOrder(r, i));
+    state.orders = rows.slice(1).map((r, i) => buildOrder(r, i));
     renderOrders();
     showScreen('screen-orders');
   } catch (err) {
@@ -835,7 +917,8 @@ function renderOrders() {
   const empty = document.getElementById('emptyState');
 
   state.filtered = state.orders.filter(o => {
-    const matchesQ = !q || (o.name || '').toLowerCase().includes(q) || (o.district || '').toLowerCase().includes(q);
+    const hay = `${o.name || ''} ${o.address || ''} ${o.orderId || ''}`.toLowerCase();
+    const matchesQ = !q || hay.includes(q);
     const sent = isSent(o.orderId);
     const matchesF = filter === 'all' || (filter === 'sent' && sent) || (filter === 'pending' && !sent);
     return matchesQ && matchesF;
@@ -853,7 +936,7 @@ function renderOrders() {
         <td>${o.rowNumber}</td>
         <td><code style="font-size:12px;">${escapeHtml(o.orderId)}</code></td>
         <td>${escapeHtml(o.name || '—')}</td>
-        <td>${escapeHtml(o.district || '—')}</td>
+        <td class="addr-cell" title="${escapeHtml(o.address || '')}">${escapeHtml(o.address || '—')}</td>
         <td>${escapeHtml(o.payment || '—')}</td>
         <td>${o.total} BDT</td>
         <td><span class="badge ${sent ? 'sent' : 'pending'}">${sent ? 'Sent' : 'Pending'}</span></td>
@@ -874,19 +957,28 @@ function escapeHtml(s) {
 }
 
 /* ---------- modal ---------- */
-function openModal(order) {
-  state.currentOrder = order;
+function renderModalContent() {
+  const order = state.currentOrder;
+  if (!order) return;
+
   const html = fillTemplate(state.template, order);
-  const iframe = document.getElementById('previewFrame');
-  iframe.srcdoc = html;
+  document.getElementById('previewFrame').srcdoc = html;
+
+  document.getElementById('zoneDhakaBtn').classList.toggle('active', order.zone === 'dhaka');
+  document.getElementById('zoneOutsideBtn').classList.toggle('active', order.zone === 'outside');
+  const flagged = order.zone !== order.detectedZone;
+  document.getElementById('zoneHint').textContent = flagged
+    ? `Manual override (auto-detected: ${order.detectedZone === 'dhaka' ? 'Dhaka' : 'Outside Dhaka'}).`
+    : 'Auto-detected from address — change if wrong.';
 
   const rows = [
-    ['Customer', order.name],
+    ['Customer', order.name || '—'],
     ['Order ID', order.orderId],
     ['Email', order.email || '—'],
     ['Phone', order.phone || '—'],
-    ['District', order.district],
-    ['Payment', order.payment],
+    ['Address', order.address || '—'],
+    ['Payment', order.payment || '—'],
+    ['Transaction ID', order.txnId || '—'],
     ['Subtotal', `${order.subtotal} BDT`],
     ['Shipping', `${order.shipping} BDT`],
     ['Total', `${order.total} BDT`],
@@ -895,9 +987,21 @@ function openModal(order) {
   document.getElementById('summaryRows').innerHTML = rows.map(([k, v]) =>
     `<div class="summary-row"><span class="k">${escapeHtml(k)}</span><span class="v">${escapeHtml(v)}</span></div>`
   ).join('');
+}
 
+function openModal(order) {
+  state.currentOrder = order;
+  renderModalContent();
   document.getElementById('testBanner').style.display = state.testMode ? 'block' : 'none';
   document.getElementById('modalBackdrop').classList.add('active');
+}
+
+function setOrderZone(zone) {
+  if (!state.currentOrder) return;
+  applyZone(state.currentOrder, zone);
+  renderModalContent();
+  // Reflect updated total in the table behind the modal
+  renderOrders();
 }
 
 function closeModal() {
@@ -1000,6 +1104,9 @@ function init() {
 
   document.getElementById('downloadBtn').addEventListener('click', downloadCurrent);
   document.getElementById('sendBtn').addEventListener('click', sendCurrent);
+
+  document.getElementById('zoneDhakaBtn').addEventListener('click', () => setOrderZone('dhaka'));
+  document.getElementById('zoneOutsideBtn').addEventListener('click', () => setOrderZone('outside'));
 }
 
 document.addEventListener('DOMContentLoaded', init);
